@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>InnerType</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@300;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #F5F5DC;
+            --text-color: #4A4A4A;
+            --accent-color: #8E8D8A;
+        }
+
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Noto Serif KR', serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        .container {
+            text-align: center;
+            padding: 2rem;
+            max-width: 600px;
+            /* Remove opacity/animation from here to prevent issues when showing results */
+        }
+
+        .intro-animation {
+            opacity: 0;
+            animation: fadeIn 2s ease-in forwards;
+        }
+
+        h1 {
+            font-size: 3rem;
+            font-weight: 500;
+            letter-spacing: 0.2rem;
+            margin-bottom: 1rem;
+        }
+
+        /* ... skipped lines ... */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeInCentered {
+            from {
+                opacity: 0;
+                transform: translate(-50%, -40%);
+                /* Start slightly lower but keep horizontal center */
+            }
+
+            to {
+                opacity: 1;
+                transform: translate(-50%, -50%);
+                /* End exactly centered */
+            }
+        }
+
+        #archetype-list {
+            display: none;
+            margin-top: 2rem;
+            text-align: left;
+            max-height: 60vh;
+            overflow-y: auto;
+            padding: 1rem;
+        }
+
+        /* ... skipped lines ... */
+        /* Quiz Styles */
+        .quiz-container {
+            display: none;
+            max-width: 500px;
+            margin: 0 auto;
+            text-align: center;
+            animation: fadeInCentered 0.8s ease-out;
+            /* Ensure it is centered if container is hidden */
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 90%;
+        }
+
+        .question-card {
+            background: #f9f9f9;
+            padding: 2rem;
+            border-radius: 15px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+            margin-bottom: 2rem;
+        }
+
+        .btn-choice {
+            display: block;
+            width: 100%;
+            padding: 1rem;
+            margin: 0.5rem 0;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 1rem;
+        }
+
+        .btn-choice:hover {
+            background: #f0f0f0;
+            transform: translateY(-2px);
+            border-color: #333;
+        }
+
+        .emotion-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .fade-out {
+            opacity: 0;
+            transform: translateY(-10px);
+            transition: 0.4s;
+            pointer-events: none;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container intro-animation" id="main-screen">
+        <h1>InnerType</h1>
+        <p>지금 당신의 기질을 읽어봅니다.</p>
+        <button onclick="startAnalysis()">시작하기</button>
+
+        <div id="archetype-list"></div>
+    </div>
+
+    <div id="quiz-app" class="quiz-container">
+        <div id="quiz-content"></div>
+    </div>
+
+    <script>
+        const ARCHETYPES = [
+            { id: "Flame", name: "베드로", trait: "직진형", desc: "망설이기보다 먼저 움직이는 사람." },
+            { id: "Depth", name: "요한", trait: "감성 깊음", desc: "겉보다 속이 깊은 사람." },
+            { id: "Bold", name: "도마", trait: "진실 직설", desc: "불편해도 진실을 말하는 사람." },
+            { id: "Steady", name: "야고보", trait: "묵묵한 신뢰", desc: "크게 드러나지 않아도 끝까지 가는 사람." },
+            { id: "Warm", name: "안드레", trait: "관계 중심", desc: "사람을 먼저 생각하는 사람." },
+            { id: "Vision", name: "빌립", trait: "큰 그림", desc: "남들이 못 보는 걸 보는 사람." },
+            { id: "Harmony", name: "바돌로매", trait: "중재자", desc: "갈등보다 연결을 선택하는 사람." },
+            { id: "Anchor", name: "마태", trait: "안정감", desc: "쉽게 흔들리지 않는 사람." },
+            { id: "Solo", name: "알패오 야고보", trait: "독립적", desc: "혼자 있을 때 더 강해지는 사람." },
+            { id: "Hope", name: "다대오", trait: "낙관형", desc: "어둠 속에서도 빛을 찾는 사람." },
+            { id: "Wisdom", name: "시몬", trait: "분석형", desc: "감정보다 이성을 먼저 보는 사람." },
+            { id: "Faithful", name: "맛디아", trait: "꾸준형", desc: "변함없이 자기 자리를 지키는 사람." }
+        ];
+
+        const QUESTIONS = [
+            { q: "확신이 완벽하지 않을 때 나는:", a: "일단 해본다", b: "더 생각한다" },
+            { q: "새로운 장소에 갔을 때:", a: "사람들에게 먼저 다가간다", b: "분위기를 살핀다" },
+            { q: "고민이 있는 친구에게 나는:", a: "해결책을 제안한다", b: "마음을 먼저 들어준다" },
+            { q: "나를 가장 잘 설명하는 단어는:", a: "열정", b: "평온" },
+            { q: "혼자만의 시간이 주어지면:", a: "새로운 계획을 세운다", b: "조용히 재충전한다" }
+        ];
+
+        const EMOTIONS = ["지쳐 있다", "불안하다", "평온하다", "도전하고 싶다", "위로가 필요하다", "괜찮은 하루다", "에너지가 넘친다"];
+
+        let currentStep = 0;
+        let userAnswers = [];
+
+        function startAnalysis() {
+            // Hide the main screen content instead of just the button/p text, because we want to switch to quiz view
+            // The original logic just hid button and changed text, but we have a separate #quiz-app container
+            document.getElementById('main-screen').style.display = 'none';
+            document.getElementById('quiz-app').style.display = 'block';
+            showQuestion();
+        }
+
+        function showQuestion() {
+            const container = document.getElementById('quiz-content');
+            if (currentStep < QUESTIONS.length) {
+                const item = QUESTIONS[currentStep];
+                container.innerHTML = `
+                    <div class="question-card" style="animation: fadeIn 0.5s">
+                        <h3>Q${currentStep + 1}. ${item.q}</h3>
+                        <button class="btn-choice" onclick="handleAnswer(0)">${item.a}</button>
+                        <button class="btn-choice" onclick="handleAnswer(1)">${item.b}</button>
+                    </div>
+                `;
+            } else {
+                showEmotionSelection();
+            }
+        }
+
+        function handleAnswer(choice) {
+            userAnswers.push(choice);
+            currentStep++;
+            const card = document.querySelector('.question-card');
+            card.classList.add('fade-out');
+            setTimeout(showQuestion, 400);
+        }
+
+        function showEmotionSelection() {
+            const container = document.getElementById('quiz-content');
+            container.innerHTML = `
+                <div class="question-card" style="animation: fadeIn 0.5s">
+                    <h3>지금 당신의 감정 상태는 어떤가요?</h3>
+                    <div class="emotion-grid">
+                        ${EMOTIONS.map((e, index) => `<button class="btn-choice" onclick="showFinalResult('${e}')">${e}</button>`).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        function showFinalResult(selectedEmotion) {
+            const listContainer = document.getElementById('archetype-list');
+            const quizApp = document.getElementById('quiz-app');
+            const mainScreen = document.getElementById('main-screen');
+
+            quizApp.style.display = 'none';
+            mainScreen.style.display = 'block'; // Show main screen again to display results
+
+            // Clean up main screen for result display
+            document.querySelector('#main-screen h1').style.display = 'block';
+            document.querySelector('#main-screen p').innerText = "당신과 가장 닮은 목소리는...";
+            document.querySelector('#main-screen button').style.display = 'none'; // Ensure start button is gone
+
+            // Calculate result based on binary sum of answers (Simple hashing logic)
+            // Each answer (A=0, B=1) contributes to a binary number.
+            // The result is then mapped to one of the 12 archetypes using modulo operation.
+            const resultIndex = userAnswers.reduce((acc, val, i) => acc + (val * Math.pow(2, i)), 0) % ARCHETYPES.length;
+            const result = ARCHETYPES[resultIndex];
+
+            listContainer.style.display = 'block';
+            listContainer.innerHTML = `
+                <div class="archetype-item" style="animation: fadeIn 1s; border: 2px solid #333; transform: scale(1.05);">
+                    <div class="archetype-name" style="font-size: 1.5rem;">${result.id} (${result.trait} / ${result.name})</div>
+                    <div class="archetype-desc" style="font-size: 1.1rem; margin-top: 10px;">${result.desc}</div>
+                </div>
+                <p style="margin-top: 2rem; color: #666; font-size: 0.9rem;">* 12가지 아키타입 중 당신의 현재 성향과 가장 매칭되는 결과입니다.</p>
+                ${selectedEmotion ? `<p style="margin-top: 1rem; color: #888; font-size: 0.8rem;">현재 감정: ${selectedEmotion}</p>` : ''}
+            `;
+        }
+        // 84 Bible Verses Data (12 Archetypes * 7 Emotions)
+        const VERSES = {
+            "Flame": {
+                "지쳐 있다": { text: "너는 알지 못하였느냐 듣지 못하였느냐 영원하신 하나님 여호와, 땅 끝까지 창조하신 이는 피곤하지 않으시며 곤비하지 않으시며 명철이 한이 없으시며 피곤한 자에게는 능력을 주시며 무능한 자에게는 힘을 더하시나니", source: "이사야 40:28-29" },
+                "불안하다": { text: "두려워하지 말라 내가 너와 함께 함이라 놀라지 말라 나는 네 하나님이 됨이라 내가 너를 굳세게 하리라 참으로 너를 도와 주리라 참으로 나의 의로운 오른손으로 너를 붙들리라", source: "이사야 41:10" },
+                "평온하다": { text: "여호와는 나의 목자시니 내게 부족함이 없으리로다 그가 나를 푸른 풀밭에 누이시며 쉴 만한 물 가로 인도하시는도다", source: "시편 23:1-2" },
+                "도전하고 싶다": { text: "네 시작은 미약하였으나 네 나중은 심히 창대하리라", source: "욥기 8:7" },
+                "위로가 필요하다": { text: "수고하고 무거운 짐 진 자들아 다 내게로 오라 내가 너희를 쉬게 하리라", source: "마태복음 11:28" },
+                "괜찮은 하루다": { text: "항상 기뻐하라 쉬지 말고 기도하라 범사에 감사하라 이것이 그리스도 예수 안에서 너희를 향하신 하나님의 뜻이니라", source: "데살로니가전서 5:16-18" },
+                "에너지가 넘친다": { text: "내게 능력 주시는 자 안에서 내가 모든 것을 할 수 있느니라", source: "빌립보서 4:13" }
+            },
+            "Depth": {
+                "지쳐 있다": { text: "나의 영혼이 잠잠히 하나님만 바람이여 나의 구원이 그에게서 나오는도다", source: "시편 62:1" },
+                "불안하다": { text: "아무 것도 염려하지 말고 다만 모든 일에 기도와 간구로, 너희 구할 것을 감사함으로 하나님께 아뢰라 그리하면 모든 지각에 뛰어난 하나님의 평강이 그리스도 예수 안에서 너희 마음과 생각을 지키시리라", source: "빌립보서 4:6-7" },
+                "평온하다": { text: "주께서 심지가 견고한 자를 평강하고 평강하도록 지키시리니 이는 그가 주를 신뢰함이니이다", source: "이사야 26:3" },
+                "도전하고 싶다": { text: "너는 내게 부르짖으라 내가 네게 응답하겠고 네가 알지 못하는 크고 은밀한 일을 네게 보이리라", source: "예레미야 33:3" },
+                "위로가 필요하다": { text: "여호와는 마음이 상한 자를 가까이 하시고 충심으로 통회하는 자를 구원하시는도다", source: "시편 34:18" },
+                "괜찮은 하루다": { text: "우리가 알거니와 하나님을 사랑하는 자 곧 그의 뜻대로 부르심을 입은 자들에게는 모든 것이 합력하여 선을 이루느니라", source: "로마서 8:28" },
+                "에너지가 넘친다": { text: "일어나라 빛을 발하라 이는 네 빛이 이르렀고 여호와의 영광이 네 위에 임하였음이니라", source: "이사야 60:1" }
+            },
+            "Bold": {
+                "지쳐 있다": { text: "오직 여호와를 앙망하는 자는 새 힘을 얻으리니 독수리가 날개치며 올라감 같을 것이요 달음박질하여도 곤비하지 아니하겠고 걸어가도 피곤하지 아니하리로다", source: "이사야 40:31" },
+                "불안하다": { text: "만일 하나님이 우리를 위하시면 누가 우리를 대적하리요", source: "로마서 8:31" },
+                "평온하다": { text: "진리를 알지니 진리가 너희를 자유롭게 하리라", source: "요한복음 8:32" },
+                "도전하고 싶다": { text: "강하고 담대하라 두려워하지 말며 놀라지 말라 네가 어디로 가든지 네 하나님 여호와가 너와 함께 하느니라 하시니라", source: "여호수아 1:9" },
+                "위로가 필요하다": { text: "너희 중에 누구든지 지혜가 부족하거든 모든 사람에게 후히 주시고 꾸짖지 아니하시는 하나님께 구하라 그리하면 주시리라", source: "야고보서 1:5" },
+                "괜찮은 하루다": { text: "내가 선한 싸움을 싸우고 나의 달려갈 길을 마치고 믿음을 지켰으니", source: "디모데후서 4:7" },
+                "에너지가 넘친다": { text: "소망의 하나님이 모든 기쁨과 평강을 믿음 안에서 너희에게 충만하게 하사 성령의 능력으로 소망이 넘치게 하시기를 원하노라", source: "로마서 15:13" }
+            },
+            "Steady": {
+                "지쳐 있다": { text: "우리가 선을 행하되 낙심하지 말지니 포기하지 아니하면 때가 이르매 거두리라", source: "갈라디아서 6:9" },
+                "불안하다": { text: "너희는 마음에 근심하지 말라 하나님을 믿으니 또 나를 믿으라", source: "요한복음 14:1" },
+                "평온하다": { text: "오직 성령의 열매는 사랑과 희락과 화평과 오래 참음과 자비와 양선과 충성과 온유와 절제니 이같은 것을 금지할 법이 없느니라", source: "갈라디아서 5:22-23" },
+                "도전하고 싶다": { text: "너의 행사를 여호와께 맡기라 그리하면 네가 경영하는 것이 이루어지리라", source: "잠언 16:3" },
+                "위로가 필요하다": { text: "나의 힘이신 여호와여 내가 주를 사랑하나이다 여호와는 나의 반석이시요 나의 요새시요 나를 건지시는 이시요 나의 하나님이시요", source: "시편 18:1-2" },
+                "괜찮은 하루다": { text: "사람이 마음으로 자기의 길을 계획할지라도 그의 걸음을 인도하시는 이는 여호와시니라", source: "잠언 16:9" },
+                "에너지가 넘친다": { text: "그러므로 내 사랑하는 형제들아 견실하며 흔들리지 말고 항상 주의 일에 더욱 힘쓰는 자들이 되라 이는 너희 수고가 주 안에서 헛되지 않은 줄 앎이라", source: "고린도전서 15:58" }
+            },
+            "Warm": {
+                "지쳐 있다": { text: "내가 너희를 고아와 같이 버려두지 아니하고 너희에게로 오리라", source: "요한복음 14:18" },
+                "불안하다": { text: "평안을 너희에게 끼치노니 곧 나의 평안을 너희에게 주노라 내가 너희에게 주는 것은 세상이 주는 것과 같지 아니하니라 너희는 마음에 근심하지도 말고 두려워하지도 말라", source: "요한복음 14:27" },
+                "평온하다": { text: "사랑하는 자여 네 영혼이 잘됨 같이 네가 범사에 잘되고 강건하기를 내가 간구하노라", source: "요한삼서 1:2" },
+                "도전하고 싶다": { text: "새 계명을 너희에게 주노니 서로 사랑하라 내가 너희를 사랑한 것 같이 너희도 서로 사랑하라", source: "요한복음 13:34" },
+                "위로가 필요하다": { text: "하나님은 우리의 피난처시요 힘이시니 환난 중에 만날 큰 도움이시라", source: "시편 46:1" },
+                "괜찮은 하루다": { text: "무엇보다도 뜨겁게 서로 사랑할지니 사랑은 허다한 죄를 덮느니라", source: "베드로전서 4:8" },
+                "에너지가 넘친다": { text: "우리가 사랑함은 그가 먼저 우리를 사랑하셨음이라", source: "요한일서 4:19" }
+            },
+            "Vision": {
+                "지쳐 있다": { text: "너는 내일 일을 자랑하지 말라 하루 동안에 무슨 일이 일어날는지 네가 알 수 없음이니라", source: "잠언 27:1" },
+                "불안하다": { text: "믿음은 바라는 것들의 실상이요 보이지 않는 것들의 증거니", source: "히브리서 11:1" },
+                "평온하다": { text: "너희가 내 안에 거하고 내 말이 너희 안에 거하면 무엇이든지 원하는 대로 구하라 그리하면 이루리라", source: "요한복음 15:7" },
+                "도전하고 싶다": { text: "일을 행하시는 여호와, 그것을 만들며 성취하시는 여호와, 그의 이름을 여호와라 하는 이가 이와 같이 이르시도다", source: "예레미야 33:2" },
+                "위로가 필요하다": { text: "보라 내가 새 일을 행하리니 이제 나타낼 것이라 너희가 그것을 알지 못하겠느냐 반드시 내가 광야에 길을 사막에 강을 내리니", source: "이사야 43:19" },
+                "괜찮은 하루다": { text: "그런즉 누구든지 그리스도 안에 있으면 새로운 피조물이라 이전 것은 지나갔으니 보라 새 것이 되었도다", source: "고린도후서 5:17" },
+                "에너지가 넘친다": { text: "묵시가 없으면 백성이 방자히 행하거니와 율법을 지키는 자는 복이 있느니라", source: "잠언 29:18" }
+            },
+            "Harmony": {
+                "지쳐 있다": { text: "볼지어다 내가 문 밖에 서서 두드리노니 누구든지 내 음성을 듣고 문을 열면 내가 그에게로 들어가 그와 더불어 먹고 그는 나와 더불어 먹으리라", source: "요한계시록 3:20" },
+                "불안하다": { text: "할 수 있거든 너희로서는 모든 사람과 더불어 화목하라", source: "로마서 12:18" },
+                "평온하다": { text: "보라 형제가 연합하여 동거함이 어찌 그리 선하고 아름다운고", source: "시편 133:1" },
+                "도전하고 싶다": { text: "화평하게 하는 자는 복이 있나니 그들이 하나님의 아들이라 일컬음을 받을 것임이요", source: "마태복음 5:9" },
+                "위로가 필요하다": { text: "서로 친절하게 하며 불쌍히 여기며 서로 용서하기를 하나님이 그리스도 안에서 너희를 용서하심과 같이 하라", source: "에베소서 4:32" },
+                "괜찮은 하루다": { text: "즐거워하는 자들과 함께 즐거워하고 우는 자들과 함께 울라", source: "로마서 12:15" },
+                "에너지가 넘친다": { text: "모든 겸손과 온유로 하고 오래 참음으로 사랑 가운데서 서로 용납하고 평안의 매는 줄로 성령이 하나 되게 하신 것을 힘써 지키라", source: "에베소서 4:2-3" }
+            },
+            "Anchor": {
+                "지쳐 있다": { text: "나의 방패는 마음이 정직한 자를 구원하시는 하나님께 있도다", source: "시편 7:10" },
+                "불안하다": { text: "나의 반석이시요 나의 구원이시요 나의 요새이시니 내가 크게 흔들리지 아니하리로다", source: "시편 62:2" },
+                "평온하다": { text: "예수 그리스도는 어제나 오늘이나 영원토록 동일하시니라", source: "히브리서 13:8" },
+                "도전하고 싶다": { text: "그러므로 내 사랑하는 형제들아 견실하며 흔들리지 말고 항상 주의 일에 더욱 힘쓰는 자들이 되라", source: "고린도전서 15:58" },
+                "위로가 필요하다": { text: "주는 나의 은신처이오니 환난에서 나를 보호하시고 구원의 노래로 나를 두르시리이다", source: "시편 32:7" },
+                "괜찮은 하루다": { text: "여호와의 눈은 온 땅을 두루 감찰하사 전심으로 자기에게 향하는 자들을 위하여 능력을 베푸시나니", source: "역대하 16:9" },
+                "에너지가 넘친다": { text: "너희 믿음의 시련이 인내를 만들어 내는 줄 너희가 앎이라 인내를 온전히 이루라 이는 너희로 온전하고 구비하여 조금도 부족함이 없게 하려 함이라", source: "야고보서 1:3-4" }
+            },
+            "Solo": {
+                "지쳐 있다": { text: "너는 골방에 들어가 문을 닫고 은밀한 중에 계신 네 아버지께 기도하라", source: "마태복음 6:6" },
+                "불안하다": { text: "사람을 두려워하면 올무에 걸리게 되거니와 여호와를 의지하는 자는 안전하리라", source: "잠언 29:25" },
+                "평온하다": { text: "여호와께서 너를 위하여 싸우시리니 너희는 가만히 있을지니라", source: "출애굽기 14:14" },
+                "도전하고 싶다": { text: "스스로 속이지 말라 하나님은 업신여김을 받지 아니하시나니 사람이 무엇으로 심든지 그대로 거두리라", source: "갈라디아서 6:7" },
+                "위로가 필요하다": { text: "너의 하나님 여호와가 너의 가운데에 계시니 그는 구원을 베푸실 전능자이시라 그가 너로 말미암아 기쁨을 이기지 못하시며 너를 잠잠히 사랑하시며", source: "스바냐 3:17" },
+                "괜찮은 하루다": { text: "내가 새벽 날개를 치며 바다 끝에 가서 거주할지라도 거기서도 주의 손이 나를 인도하시며 주의 오른손이 나를 붙드시리이다", source: "시편 139:9-10" },
+                "에너지가 넘친다": { text: "새벽 아직도 밝기 전에 예수께서 일어나 나가 한적한 곳으로 가사 거기서 기도하시더니", source: "마가복음 1:35" }
+            },
+            "Hope": {
+                "지쳐 있다": { text: "여호와를 기뻐하는 것이 너희의 힘이니라", source: "느헤미야 8:10" },
+                "불안하다": { text: "내 영혼아 네가 어찌하여 낙심하며 어찌하여 내 속에서 불안해 하는가 너는 하나님께 소망을 두라 그가 나타나 도우심으로 말미암아 내가 여전히 찬송하리로다", source: "시편 42:5" },
+                "평온하다": { text: "소망의 하나님이 모든 기쁨과 평강을 믿음 안에서 너희에게 충만하게 하사 성령의 능력으로 소망이 넘치게 하시기를 원하노라", source: "로마서 15:13" },
+                "도전하고 싶다": { text: "믿음이 없이는 하나님을 기쁘시게 하지 못하나니 하나님께 나아가는 자는 반드시 그가 계신 것과 또한 그가 자기를 찾는 자들에게 상 주시는 이심을 믿어야 할지니라", source: "히브리서 11:6" },
+                "위로가 필요하다": { text: "눈물을 흘리며 씨를 뿌리는 자는 기쁨으로 거두리로다 울며 씨를 뿌리러 나가는 자는 반드시 기쁨으로 그 곡식 단을 가지고 돌아오리로다", source: "시편 126:5-6" },
+                "괜찮은 하루다": { text: "항상 기뻐하라 쉬지 말고 기도하라 범사에 감사하라", source: "데살로니가전서 5:16-18" },
+                "에너지가 넘친다": { text: "우리가 환난 중에도 즐거워하나니 이는 환난은 인내를, 인내는 연단을, 연단은 소망을 이루는 줄 앎이로다", source: "로마서 5:3-4" }
+            },
+            "Wisdom": {
+                "지쳐 있다": { text: "너희 중에 누구든지 지혜가 부족하거든 모든 사람에게 후히 주시고 꾸짖지 아니하시는 하나님께 구하라 그리하면 주시리라", source: "야고보서 1:5" },
+                "불안하다": { text: "여호와를 경외하는 것이 지식의 근본이거늘 미련한 자는 지혜와 훈계를 멸시하느니라", source: "잠언 1:7" },
+                "평온하다": { text: "오직 위로부터 난 지혜는 첫째 성결하고 다음에 화평하고 관용하고 양순하며 긍휼과 선한 열매가 가득하고 편견과 거짓이 없나니", source: "야고보서 3:17" },
+                "도전하고 싶다": { text: "너는 마음을 다하여 여호와를 신뢰하고 네 명철을 의지하지 말라 너는 범사에 그를 인정하라 그리하면 네 길을 지도하시리라", source: "잠언 3:5-6" },
+                "위로가 필요하다": { text: "내 생각이 너희의 생각과 다르며 내 길은 너희의 길과 다름이니라 여호와의 말씀이니라", source: "이사야 55:8" },
+                "괜찮은 하루다": { text: "지혜 있는 자는 궁창의 빛과 같이 빛날 것이요 많은 사람을 옳은 데로 돌아오게 한 자는 별과 같이 영원토록 빛나리라", source: "다니엘 12:3" },
+                "에너지가 넘친다": { text: "진리를 알지니 진리가 너희를 자유롭게 하리라", source: "요한복음 8:32" }
+            },
+            "Faithful": {
+                "지쳐 있다": { text: "지극히 작은 것에 충성된 자는 큰 것에도 충성되고 지극히 작은 것에 불의한 자는 큰 것에도 불의하니라", source: "누가복음 16:10" },
+                "불안하다": { text: "네가 죽도록 충성하라 그리하면 내가 생명의 관을 네게 주리라", source: "요한계시록 2:10" },
+                "평온하다": { text: "맡은 자들에게 구할 것은 충성이니라", source: "고린도전서 4:2" },
+                "도전하고 싶다": { text: "잘하였도다 착하고 충성된 종아 네가 적은 일에 충성하였으매 내가 많은 것을 네게 맡기리니 네 주인의 즐거움에 참여할지어다", source: "마태복음 25:21" },
+                "위로가 필요하다": { text: "나의 사랑하는 형제들아 견실하며 흔들리지 말고 항상 주의 일에 더욱 힘쓰는 자들이 되라", source: "고린도전서 15:58" },
+                "괜찮은 하루다": { text: "오직 성령의 열매는 사랑과 희락과 화평과 오래 참음과 자비와 양선과 충성과 온유와 절제니", source: "갈라디아서 5:22-23" },
+                "에너지가 넘친다": { text: "이 율법책을 네 입에서 떠나지 말게 하며 주야로 그것을 묵상하여 그 안에 기록된 대로 다 지켜 행하라 그리하면 네 길이 평탄하게 될 것이며 네가 형통하리라", source: "여호수아 1:8" }
+            }
+        };
+
+        function showFinalResult(selectedEmotion) {
+            const listContainer = document.getElementById('archetype-list');
+            const quizApp = document.getElementById('quiz-app');
+            const mainScreen = document.getElementById('main-screen');
+
+            quizApp.style.display = 'none';
+            mainScreen.style.display = 'block';
+
+            // Clean up main screen
+            document.querySelector('#main-screen h1').style.display = 'block';
+            document.querySelector('#main-screen h1').innerText = "분석 완료";
+
+            // Fix: Reset container animation/opacity so it shows immediately
+            mainScreen.style.animation = 'none';
+            mainScreen.style.opacity = 1;
+
+            document.querySelector('#main-screen p').style.display = 'none'; // Hide initial subtitle
+            document.querySelector('#main-screen button').style.display = 'none';
+
+            // Calculate result
+            const resultIndex = userAnswers.reduce((acc, val, i) => acc + (val * Math.pow(2, i)), 0) % ARCHETYPES.length;
+            const result = ARCHETYPES[resultIndex];
+
+            // Get Match Verse
+            // Fallback key if emotion not found (should not happen with correct logic)
+            const verseKey = selectedEmotion || "평온하다";
+            const verseData = VERSES[result.id] && VERSES[result.id][verseKey]
+                ? VERSES[result.id][verseKey]
+                : { text: "두려워하지 말라 내가 너와 함께 함이라", source: "이사야 41:10" };
+
+            listContainer.style.display = 'block';
+            listContainer.innerHTML = `
+                <div class="archetype-item" style="animation: fadeIn 1s; border: 2px solid #333; transform: scale(1.05); padding: 2rem; background: #fff;">
+                    <div style="font-size: 0.9rem; color: #888; margin-bottom: 0.5rem;">당신의 내면 목소리</div>
+                    <div class="archetype-name" style="font-size: 1.8rem; margin-bottom: 1rem;">${result.id}</div>
+                    <div style="font-size: 1.2rem; margin-bottom: 1.5rem; font-weight: 500;"> ${result.trait} / ${result.name}</div>
+                    <div class="archetype-desc" style="font-size: 1.1rem; line-height: 1.6;">${result.desc}</div>
+                    
+                    <hr style="margin: 2rem 0; border: 0; border-top: 1px dashed #ccc;">
+                    
+                    <div style="text-align: left;">
+                        <div style="font-size: 0.9rem; color: #666; margin-bottom: 1rem;">오늘 당신에게 닿는 한 문장</div>
+                        <div style="font-size: 1.1rem; font-style: italic; line-height: 1.8; word-break: keep-all;">
+                            "${verseData.text}"
+                        </div>
+                        <div id="verse-source" style="display: none; margin-top: 1rem; color: #888; font-weight: 500; text-align: right;">
+                            - ${verseData.source}
+                        </div>
+                        <button onclick="document.getElementById('verse-source').style.display = 'block'; this.style.display='none';" 
+                                style="margin-top: 1rem; padding: 0.5rem 1rem; font-size: 0.8rem; border: 1px solid #ddd; border-radius: 20px; background: #f9f9f9; color: #555;">
+                            🔎 문장의 기원 확인하기
+                        </button>
+                    </div>
+                </div>
+
+                <div style="margin-top: 2rem; display: flex; justify-content: center; gap: 10px;">
+                    <button onclick="location.reload()" style="padding: 0.8rem 1.5rem; border: 1px solid #aaa; border-radius: 5px;">다시하기</button>
+                    <button onclick="shareResult()" style="padding: 0.8rem 1.5rem; background: #333; color: #fff; border: 1px solid #333; border-radius: 5px;">결과 공유하기</button>
+                </div>
+            `;
+        }
+
+        function shareResult() {
+            const shareData = {
+                title: 'InnerType - 나의 내면 기질 분석',
+                text: '내면의 12가지 목소리 중 나의 기질을 확인해보세요.',
+                url: window.location.href
+            };
+
+            if (navigator.share) {
+                navigator.share(shareData).catch(console.error);
+            } else {
+                // Fallback for desktop/unsupported browsers
+                const dummy = document.createElement('input');
+                document.body.appendChild(dummy);
+                dummy.value = window.location.href;
+                dummy.select();
+                document.execCommand('copy');
+                document.body.removeChild(dummy);
+                alert('링크가 복사되었습니다!');
+            }
+        }
+    </script>
+</body>
+
+</html>
